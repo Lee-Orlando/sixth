@@ -1,83 +1,49 @@
 /**
- * 「关于我」内容接口 —— 云存储版
+ * 站点内容接口 —— 区块版
  *
- * 为什么用云存储而不是数据库：
- *   这个环境开通的是 PostgreSQL，「数据模型」为空，node-sdk 的 rdb REST 接口要求
- *   显式指定数据连接器标识（dbLinkName），配置起来比存储本身还重。而本站点的数据量
- *   只有几百字节、每月写入不到几次，用 JSON 文件存最省事，也不受数据库类型限制。
+ * 改这个文件之前，先把下面这几条读完，它们是这一个版本刻意做出的取舍：
  *
- * 存了什么：
- *   site/about.json  —— 页面内容，公开可读，本来就要展示给所有人
- *   site/cred/administrator-credential.json
- *                    —— 管理员账号与口令哈希
+ * 1. 写入不设门槛。任何拿到接口地址的人都能改这张页面的文案。这是作者明确要的：
+ *    重心放在「前端管理员改完内容，推送给后端」，而不是一整套账号、口令、登录态。
+ *    代价记在这里：站点一旦有了真实流量，第一件事就是回来把这个口子收上
+ *    （最省事的做法是加一个写密钥，放在云函数的环境变量里，别放在存储桶里——
+ *    这个环境的默认桶是公有读的，文件谁都能下载）。
  *
- * 为什么凭据放在这里、以及里面刻意不放什么：
- *   环境的默认存储桶是公有读的，写进去的文件理论上谁都能下载，所以这个文件里
- *   不放任何能直接当钥匙用的东西——没有签名密钥，只有加盐哈希。
+ * 2. 没有门槛不等于没有边界。字段白名单、数量上限、长度上限、请求体体积上限
+ *    全部在服务端执行。它们挡不住有心涂改，但能挡住有人往这个桶里塞垃圾文件。
  *
- *   也因此没有采用「登录一次换一张凭证」的通行做法：凭证要靠签名密钥签发，
- *   而密钥一旦写进存储，等于把钥匙挂在门外，拿到文件的人不需要知道口令就能
- *   伪造出合法管理员。改成每次写操作都附上用户名与口令，由服务端重算哈希比对。
- *   攻击者拿到这个文件，得到的只是一串哈希，只能离线去猜。
+ * 3. 内容按区块分文件存放：site/content/<区块>.json。改「首屏」不会碰到「作品集」，
+ *    写入前不需要 read-modify-write，也就不存在「两个区块同时被改、互相覆盖」的问题。
  *
- *   代价是这样一套保护完全压在口令本身的强度上，所以接口里带了修改口令和
- *   拒绝常见弱口令的能力，别用能被秒猜出来的口令。
+ * 4. 读必须带时间戳参数走 CDN 源站。同名文件的下载结果会被 CDN 缓存若干分钟，
+ *    覆盖写之后直接读，拿到的是上一版，表现为「保存成功但页面没变」。
  *
- * 为什么失败计数要单独放一个文件：
- *   计数是典型的「读出来 → 改一下 → 整个写回」。若跟口令哈希挤在同一个文件，
- *   改完口令后紧接着的任意一次写操作，都可能把读到的旧对象整体写回，
- *   把刚更新的哈希盖掉。分开存，凭据就只在播种和改口令时才动。
+ * 区块一览：
+ *   hero      首屏主标题 / 副标题 / 按钮文字
+ *   about     两段自我介绍 + 学校、求职意向、到岗时间、所在城市
+ *   skills    技能标签列表
+ *   projects  作品集列表（标题、年份、简介、标签、链接）
+ *   contact   联系区引导语 + 邮箱 + GitHub（页脚的两个图标也用这两个值）
+ *   footer    页脚一行小字
  *
- * 安全底线（改动请一并遵守）：
- *   1. 口令不以明文落地，只存 PBKDF2-HMAC-SHA256 加随机盐的派生值。
- *   2. GET 只返回 about.json 的白名单字段，凭据文件的任何内容都不会出现在响应里。
- *   3. 校验永远发生在服务端，浏览器里做判断等于没有锁。
- *   4. 连续失败会被临时锁定，这是抵御爆破的关键一环，弱口令下尤其重要。
- *   5. 初始口令写在代码里只为让站点第一次就能用，登录后务必换掉。
+ * 接口：
+ *   GET  /content            读取全部区块，没有写过内容的区块返回 null
+ *   GET  /content?section=X  只读一个区块
+ *   POST /content            { section, content } 或 { sections: { X: {...} } }
  */
 
 'use strict';
 
-const crypto = require('crypto');
 const cloudbase = require('@cloudbase/node-sdk');
 
 const app = cloudbase.init({
     env: process.env.TCB_ENV || cloudbase.SYMBOL_CURRENT_ENV
 });
 
-const CONTENT_FILE = 'site/about.json';
-const CRED_FILE = 'site/cred/administrator-credential.json';
-const GUARD_FILE = 'site/cred/login-guard.json';
+const CONTENT_DIR = 'site/content';
+const MAX_BODY_BYTES = 64 * 1024;
 
-/* 首次播种用的初始管理员。登录成功后请立刻换掉。 */
-const SEED_USERNAME = 'admin';
-const SEED_PASSWORD = 'admin';
-const MIN_PASSWORD_LENGTH = 6;
-
-/* 常见弱口令黑名单：既然保护全压在口令强度上，这一步不能省 */
-const WEAK_PASSWORDS = [
-    'admin', 'password', '123456', '12345678', '123456789', 'qwerty',
-    '111111', '000000', 'abc123', 'iloveyou', 'root', 'letmein',
-    'admin123', 'administrator', 'lyq', 'test', 'test123', '654321'
-];
-
-const PBKDF2_ITERATIONS = 120000;
-const KEY_LENGTH = 32;
-const SALT_LENGTH = 16;
-
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_DURATION_MS = 10 * 60 * 1000;
-
-const PUBLIC_FIELDS = ['lead', 'more', 'school', 'role', 'available', 'city', 'skills'];
-const LIMITS = {
-    lead: 800,
-    more: 800,
-    school: 80,
-    role: 80,
-    available: 60,
-    city: 60,
-    skills: 300
-};
+const SECTION_KEYS = ['hero', 'about', 'skills', 'projects', 'contact', 'footer'];
 
 /* ------------------------------------------------------------------ */
 /* HTTP 外壳                                                            */
@@ -131,50 +97,135 @@ function parseFormEncoded(text) {
     return result;
 }
 
-/* ------------------------------------------------------------------ */
-/* 口令                                                                */
-/* ------------------------------------------------------------------ */
-
-/** 常量时间比较：长度不同直接返回 false，避免泄漏「前几位是对的」这类信息 */
-function safeEqual(a, b) {
-    const bufA = Buffer.from(String(a));
-    const bufB = Buffer.from(String(b));
-    if (bufA.length !== bufB.length) return false;
-    return crypto.timingSafeEqual(bufA, bufB);
+function readQuery(event, name) {
+    const query = event.queryStringParameters || event.queryString || {};
+    return String(query[name] || '').trim();
 }
 
-function derivePassword(password, salt, iterations) {
-    return crypto
-        .pbkdf2Sync(String(password), salt, iterations, KEY_LENGTH, 'sha256')
-        .toString('hex');
+/* ------------------------------------------------------------------ */
+/* 校验工具                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 统一的换行规范：内容会出现在 textarea 里来回传递，\r\n 会让字符串长度在两个
+ * 环境之间对不上，先归一成 \n 再校验。
+ */
+function text(value) {
+    return typeof value === 'string' ? value.replace(/\r\n/g, '\n').trim() : '';
 }
 
-function createAdminRecord(username, password) {
-    const salt = crypto.randomBytes(SALT_LENGTH).toString('hex');
+/** 把「标签串」或数组都收成字符串数组：支持英文逗号、中文逗号与顿号分隔 */
+function textList(value) {
+    if (Array.isArray(value)) {
+        return value.map((item) => text(item)).filter(Boolean);
+    }
+    if (typeof value !== 'string') return [];
+    return value.split(/[,，、\n]/).map((item) => text(item)).filter(Boolean);
+}
+
+/**
+ * 每个区块一个整理函数：只取白名单字段，超长、超量都记进 errors。
+ * 宁可拒绝掉这一条，也不要把明显不对的东西写进存储。
+ */
+const NORMALIZERS = {
+    hero(raw, errors) {
+        return {
+            title: limited(raw.title, 'title', 60, errors),
+            subtitle: limited(raw.subtitle, 'subtitle', 160, errors),
+            ctaText: limited(raw.ctaText, 'ctaText', 24, errors)
+        };
+    },
+
+    about(raw, errors) {
+        return {
+            lead: limited(raw.lead, 'lead', 800, errors),
+            more: limited(raw.more, 'more', 800, errors),
+            school: limited(raw.school, 'school', 80, errors),
+            role: limited(raw.role, 'role', 80, errors),
+            available: limited(raw.available, 'available', 60, errors),
+            city: limited(raw.city, 'city', 60, errors)
+        };
+    },
+
+    skills(raw, errors) {
+        const items = list(raw.items, 'items', 24, 24, errors);
+        return { items };
+    },
+
+    projects(raw, errors) {
+        const rawItems = Array.isArray(raw.items) ? raw.items : [];
+        if (rawItems.length > 20) {
+            errors.items = '作品最多 20 条';
+            return { items: [] };
+        }
+
+        const items = rawItems.map((item, index) => {
+            const source = item && typeof item === 'object' ? item : {};
+            // 逐条标出出错的行号，前端好定位到第几个作品
+            const at = (name) => (name === 'tags' ? `第 ${index + 1} 个作品的标签` : `第 ${index + 1} 个作品的「${FIELD_LABELS[name] || name}」`);
+            return {
+                title: within(text(source.title), 80, at('title'), errors),
+                year: within(text(source.year), 16, at('year'), errors),
+                summary: within(text(source.summary), 300, at('summary'), errors),
+                tags: list(source.tags, at('tags'), 8, 16, errors),
+                link: within(text(source.link), 300, at('link'), errors)
+            };
+        });
+
+        return { items };
+    },
+
+    contact(raw, errors) {
+        return {
+            intro: limited(raw.intro, 'intro', 200, errors),
+            email: limited(raw.email, 'email', 120, errors),
+            github: limited(raw.github, 'github', 300, errors)
+        };
+    },
+
+    footer(raw, errors) {
+        return {
+            note: limited(raw.note, 'note', 160, errors)
+        };
+    }
+};
+
+const FIELD_LABELS = {
+    title: '标题',
+    year: '年份',
+    summary: '简介',
+    tags: '标签',
+    link: '链接'
+};
+
+/** 字符串字段：超长报错，但仍然返回原值，方便前端照原样回填让用户改 */
+function limited(value, name, max, errors) {
+    const cleaned = text(value);
+    if (cleaned.length > max) errors[name] = `${name} 不能超过 ${max} 个字`;
+    return cleaned;
+}
+
+/** 与 limited 相同，只是错误文案换成更具体的名字 */
+function within(value, max, label, errors) {
+    if (value.length > max) errors[label] = `${label} 不能超过 ${max} 个字`;
+    return value;
+}
+
+/** 列表字段：既限制条目数，也限制每条的长度 */
+function list(value, label, maxItems, maxLength, errors) {
+    const items = textList(value);
+    if (items.length > maxItems) errors[label] = `${label} 最多 ${maxItems} 项`;
+    return items.map((item) => (item.length > maxLength ? item.slice(0, maxLength) : item));
+}
+
+function normalizeSection(key, raw) {
+    const errors = {};
+    const content = NORMALIZERS[key](raw || {}, errors);
     return {
-        username,
-        salt,
-        iterations: PBKDF2_ITERATIONS,
-        hash: derivePassword(password, salt, PBKDF2_ITERATIONS),
-        // 播种出来的初始口令属于半公开信息，标记下来好提醒管理员换掉
-        seeded: true,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
+        ok: Object.keys(errors).length === 0,
+        errors,
+        content
     };
-}
-
-function credentialsMatch(admin, username, password) {
-    if (!safeEqual(username || '', admin.username)) return false;
-    const expected = derivePassword(password, admin.salt, admin.iterations || PBKDF2_ITERATIONS);
-    return safeEqual(expected, admin.hash || '');
-}
-
-function isWeakPassword(password) {
-    const lower = String(password).toLowerCase();
-    if (WEAK_PASSWORDS.includes(lower)) return true;
-    // 纯数字、或用户名倒着写这类也没什么强度
-    if (/^\d+$/.test(lower)) return true;
-    return false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -182,7 +233,7 @@ function isWeakPassword(password) {
 /* ------------------------------------------------------------------ */
 
 /**
- * 存储桶域名。首次靠约定格式猜，之后每次上传都会取到真实值覆盖上去，
+ * 存储桶域名。首次靠约定格式猜，之后每次上传都会从返回的 fileID 里学到真实值，
  * 万一平台换了规则也能自愈。
  */
 let cdnBucket = '';
@@ -203,15 +254,17 @@ function learnBucket(fileID) {
     }
 }
 
+function cloudPath(section) {
+    return `${CONTENT_DIR}/${section}.json`;
+}
+
 /**
- * 直接走 CDN 源地址并缀一个一次性参数读取。
- *
- * 同名文件的下载结果会被 CDN 缓存若干分钟，结果是「保存成功，但自己和访客
- * 看到的还是上一版」。带上时间戳参数可以跳过缓存，拿到的是刚写进去的那份。
+ * 走 CDN 源地址并缀一次性参数读取，跳过文件级别的 CDN 缓存，
+ * 保证写完之后立刻读，读到的就是刚写进去的那份。
  */
-async function fetchFresh(cloudPath) {
+async function fetchFresh(path) {
     const host = cdnBucket || guessBucket();
-    const url = `https://${host}.tcb.qcloud.la/${cloudPath}?_=${Date.now()}`;
+    const url = `https://${host}.tcb.qcloud.la/${path}?_=${Date.now()}`;
     try {
         const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok) return null;
@@ -221,17 +274,17 @@ async function fetchFresh(cloudPath) {
     }
 }
 
-async function readJson(cloudPath) {
-    const fresh = await fetchFresh(cloudPath);
+async function readJson(path) {
+    const fresh = await fetchFresh(path);
     if (fresh) return fresh;
 
     // CDN 域名规则万一变了，退回 SDK 的下载通道
     const env = process.env.TCB_ENV || '';
     const appId = process.env.TENCENTCLOUD_APPID || '';
     const candidates = [
-        `cloud://${env}.${cdnBucket || guessBucket()}/${cloudPath}`,
-        `cloud://${env}.${env}-${appId}/${cloudPath}`,
-        `cloud://${env}.6d79-${env}/${cloudPath}`
+        `cloud://${env}.${cdnBucket || guessBucket()}/${path}`,
+        `cloud://${env}.${env}-${appId}/${path}`,
+        `cloud://${env}.6d79-${env}/${path}`
     ];
 
     for (const fileID of candidates) {
@@ -248,96 +301,34 @@ async function readJson(cloudPath) {
     return null;
 }
 
-async function writeJson(cloudPath, data) {
+async function writeJson(path, data) {
     const result = await app.uploadFile({
-        cloudPath,
+        cloudPath: path,
         fileContent: Buffer.from(JSON.stringify(data, null, 2), 'utf8')
     });
     if (result && result.fileID) learnBucket(result.fileID);
     return result;
 }
 
-/* ------------------------------------------------------------------ */
-/* 凭据与计数                                                            */
-/* ------------------------------------------------------------------ */
+/** 并发读取多个区块，单个区块读失败不影响其余 */
+async function readSections(keys) {
+    const entries = await Promise.all(
+        keys.map(async (key) => {
+            try {
+                return [key, await readJson(cloudPath(key))];
+            } catch {
+                return [key, null];
+            }
+        })
+    );
 
-async function ensureAdmin() {
-    const stored = await readJson(CRED_FILE);
-    if (stored && stored.hash) return stored;
-
-    // 第一次跑：用初始口令播种，往后凭据就在这个文件里，改也在这里改
-    const created = createAdminRecord(SEED_USERNAME, SEED_PASSWORD);
-    await writeJson(CRED_FILE, created);
-    return created;
-}
-
-async function persistAdmin(admin) {
-    admin.updatedAt = Date.now();
-    await writeJson(CRED_FILE, admin);
-}
-
-async function readGuard() {
-    const stored = await readJson(GUARD_FILE);
-    if (stored && typeof stored === 'object' && 'failedCount' in stored) return stored;
-    return { failedCount: 0, lockedUntil: 0 };
-}
-
-async function writeGuard(guard) {
-    guard.updatedAt = Date.now();
-    await writeJson(GUARD_FILE, guard);
-}
-
-/**
- * 统一的身份校验。口令不对就顺带累计失败次数，达到上限临时锁定。
- * 返回 null 表示通过，否则返回可直接下发给前端的错误响应。
- */
-async function guardCredentials(username, password, origin) {
-    const guard = await readGuard();
-
-    if (guard.lockedUntil && guard.lockedUntil > Date.now()) {
-        const remain = Math.ceil((guard.lockedUntil - Date.now()) / 1000);
-        return respond(429, { ok: false, message: `口令连续输错多次，请 ${remain} 秒后再试。` }, origin);
-    }
-
-    const admin = await ensureAdmin();
-    if (!credentialsMatch(admin, username, password)) {
-        guard.failedCount = (guard.failedCount || 0) + 1;
-        if (guard.failedCount >= MAX_FAILED_ATTEMPTS) {
-            guard.lockedUntil = Date.now() + LOCK_DURATION_MS;
-            guard.failedCount = 0;
-        }
-        await writeGuard(guard);
-        return respond(401, { ok: false, message: '用户名或口令不正确' }, origin);
-    }
-
-    if (guard.failedCount || guard.lockedUntil) {
-        guard.failedCount = 0;
-        guard.lockedUntil = 0;
-        await writeGuard(guard);
-    }
-
-    return null;
-}
-
-/* ------------------------------------------------------------------ */
-/* 内容校验                                                              */
-/* ------------------------------------------------------------------ */
-
-/** 只保留白名单字段，避免有人借接口往存储里塞别的东西 */
-function normalizeContent(raw) {
-    const errors = {};
-    const content = {};
-
-    PUBLIC_FIELDS.forEach((field) => {
-        const value = typeof raw[field] === 'string' ? raw[field].trim() : '';
-        if (value.length > LIMITS[field]) {
-            errors[field] = `${field} 超过 ${LIMITS[field]} 字上限`;
-            return;
-        }
-        content[field] = value;
+    const sections = {};
+    const updatedAt = {};
+    entries.forEach(([key, data]) => {
+        sections[key] = data || null;
+        updatedAt[key] = data ? data.updatedAt || null : null;
     });
-
-    return { ok: Object.keys(errors).length === 0, errors, content };
+    return { sections, updatedAt };
 }
 
 /* ------------------------------------------------------------------ */
@@ -353,16 +344,27 @@ exports.main = async (event = {}) => {
     }
 
     if (event.httpMethod === 'GET') {
-        try {
-            const content = await readJson(CONTENT_FILE);
+        const asked = readQuery(event, 'section');
+        if (asked) {
+            if (!SECTION_KEYS.includes(asked)) {
+                return respond(400, { ok: false, message: `没有 ${asked} 这个区块` }, origin);
+            }
+            const { sections, updatedAt } = await readSections([asked]);
             return respond(200, {
                 ok: true,
-                content: content || null,
-                updatedAt: content ? content.updatedAt || null : null
+                sections,
+                updatedAt: updatedAt[asked]
             }, origin);
+        }
+
+        try {
+            const { sections, updatedAt } = await readSections(SECTION_KEYS);
+            return respond(200, { ok: true, sections, updatedAt }, origin);
         } catch {
-            // 拿不到就返回空，前端会沿用 HTML 里的静态内容，不会白屏
-            return respond(200, { ok: true, content: null, updatedAt: null }, origin);
+            // 读不到就返回全空，前端沿用 HTML 里的静态内容，不会白屏
+            const empty = {};
+            SECTION_KEYS.forEach((key) => { empty[key] = null; });
+            return respond(200, { ok: true, sections: empty, updatedAt: {} }, origin);
         }
     }
 
@@ -370,68 +372,60 @@ exports.main = async (event = {}) => {
         return respond(405, { ok: false, message: '仅支持 GET / POST 请求' }, origin);
     }
 
+    const rawBody = typeof event.body === 'string' ? event.body : JSON.stringify(event.body || '');
+    if (Buffer.byteLength(rawBody, 'utf8') > MAX_BODY_BYTES) {
+        return respond(413, { ok: false, message: '内容太大了' }, origin);
+    }
+
     const body = parsePayload(event);
-    const action = String(body.action || '');
-    const username = String(body.username || '');
-    const password = String(body.password || '');
 
-    /* ---- 验证口令（不产生凭证，只回答「这对不对」）---- */
-    if (action === 'verify') {
-        const rejected = await guardCredentials(username, password, origin);
-        if (rejected) return rejected;
+    /* 一次提交多个区块时，逐个校验：任一区块不合格就整批退回，
+       免得出现「一半写进去一半没写进去」的状态 */
+    const batch = body.sections && typeof body.sections === 'object'
+        ? Object.keys(body.sections)
+        : [String(body.section || '')];
 
-        const admin = await ensureAdmin();
-        return respond(200, {
-            ok: true,
-            username: admin.username,
-            // 还在用播种出来的初始口令时如实说明，前端据此提醒更换
-            usingSeedPassword: admin.seeded === true
+    const targets = batch.filter((key) => SECTION_KEYS.includes(key));
+    if (!targets.length) {
+        return respond(400, {
+            ok: false,
+            message: `请指定要保存的区块，可选：${SECTION_KEYS.join(' / ')}`
         }, origin);
     }
 
-    /* ---- 修改口令 ---- */
-    if (action === 'changePassword') {
-        const rejected = await guardCredentials(username, password, origin);
-        if (rejected) return rejected;
+    const allErrors = {};
+    const prepared = [];
 
-        const next = String(body.newPassword || '');
-        if (next.length < MIN_PASSWORD_LENGTH) {
-            return respond(400, { ok: false, message: `新口令至少 ${MIN_PASSWORD_LENGTH} 位` }, origin);
-        }
-        if (isWeakPassword(next)) {
-            return respond(400, {
-                ok: false,
-                message: '这个口令太容易猜，换一个带字母、数字和符号的组合。'
-            }, origin);
-        }
-
-        const admin = await ensureAdmin();
-        admin.salt = crypto.randomBytes(SALT_LENGTH).toString('hex');
-        admin.hash = derivePassword(next, admin.salt, admin.iterations || PBKDF2_ITERATIONS);
-        admin.seeded = false;
-        await persistAdmin(admin);
-
-        return respond(200, { ok: true, message: '口令已更新，下次用新口令登录。' }, origin);
-    }
-
-    /* ---- 保存内容 ---- */
-    if (action === 'save') {
-        const rejected = await guardCredentials(username, password, origin);
-        if (rejected) return rejected;
-
-        const { ok, errors, content } = normalizeContent(body.content || {});
+    targets.forEach((key) => {
+        const source = body.sections ? body.sections[key] : body.content;
+        const { ok, errors, content } = normalizeSection(key, source);
         if (!ok) {
-            return respond(400, { ok: false, message: '内容未通过校验', errors }, origin);
+            Object.keys(errors).forEach((name) => {
+                allErrors[`${key}.${name}`] = errors[name];
+            });
+            return;
         }
+        prepared.push({ key, content });
+    });
 
-        try {
-            await writeJson(CONTENT_FILE, { ...content, updatedAt: Date.now() });
-            return respond(200, { ok: true, message: '已保存，访客刷新即可看到。' }, origin);
-        } catch (error) {
-            console.error('[content] 内容写入失败:', error);
-            return respond(500, { ok: false, message: '写入云端存储失败，请稍后重试。' }, origin);
-        }
+    if (Object.keys(allErrors).length > 0) {
+        return respond(400, { ok: false, message: '内容未通过校验', errors: allErrors }, origin);
     }
 
-    return respond(400, { ok: false, message: '不支持的操作' }, origin);
+    try {
+        const savedAt = Date.now();
+        // 区块之间互不相干，可以放心并发写
+        await Promise.all(
+            prepared.map(({ key, content }) => writeJson(cloudPath(key), { ...content, updatedAt: savedAt }))
+        );
+        return respond(200, {
+            ok: true,
+            message: targets.length > 1 ? '区块已全部保存。' : '已保存，访客刷新即可看到。',
+            saved: targets,
+            savedAt
+        }, origin);
+    } catch (error) {
+        console.error('[content] 区块写入失败:', error);
+        return respond(500, { ok: false, message: '写入云端存储失败，请稍后重试。' }, origin);
+    }
 };
