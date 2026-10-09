@@ -1,0 +1,11 @@
+{
+    "name": "contact",
+    "version": "2.0.0",
+    "description": "接收个人站点联系表单留言，校验后按月归档写入云端存储",
+    "main": "index.js",
+    "license": "MIT",
+    "private": true,
+    "dependencies": {
+        "@cloudbase/node-sdk": "^3.18.3"
+    }
+}

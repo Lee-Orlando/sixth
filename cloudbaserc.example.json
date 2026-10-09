@@ -1,0 +1,38 @@
+{
+    "envId": "REPLACE_WITH_YOUR_ENV_ID",
+    "framework": {
+        "name": "lyq-portfolio",
+        "plugins": {
+            "client": {
+                "use": "@cloudbase/framework-plugin-website",
+                "inputs": {
+                    "buildCommand": "echo 'static site, no build step'",
+                    "outputPath": ".",
+                    "cloudPath": "/"
+                }
+            },
+            "fn": {
+                "use": "@cloudbase/framework-plugin-function",
+                "inputs": {
+                    "functionRootPath": "cloudfunctions",
+                    "functions": [
+                        {
+                            "name": "contact",
+                            "timeout": 10,
+                            "runtime": "Nodejs18.15",
+                            "memorySize": 256,
+                            "installDependency": true
+                        },
+                        {
+                            "name": "content",
+                            "timeout": 10,
+                            "runtime": "Nodejs18.15",
+                            "memorySize": 256,
+                            "installDependency": true
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

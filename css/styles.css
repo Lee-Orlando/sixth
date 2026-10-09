@@ -1,0 +1,818 @@
+:root {
+    --gold: #FFD700;
+    --dark-gold: #c5a700;
+    --black: #0a0a0a;
+    --dark-gray: #1a1a1a;
+    --light-gray: #f0f0f0;
+    --white: #ffffff;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Roboto, Helvetica, Arial, sans-serif;
+    --font-serif: Georgia, 'Times New Roman', 'Songti SC', STSong, serif;
+    --error: #f28b82;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--black);
+    color: var(--light-gray);
+    overflow-x: hidden;
+    line-height: 1.6;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+h1, h2, h3, h4 {
+    font-family: var(--font-serif);
+    color: var(--gold);
+    font-weight: 700;
+}
+
+a {
+    color: var(--gold);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: var(--dark-gold);
+}
+
+:focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: 3px;
+    border-radius: 2px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.skip-link {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -120%);
+    z-index: 2000;
+    padding: 12px 24px;
+    background: var(--gold);
+    color: var(--black);
+    font-weight: 700;
+    transition: transform 0.2s ease;
+}
+
+.skip-link:focus {
+    transform: translate(-50%, 0);
+}
+
+section[id] {
+    scroll-margin-top: 90px;
+}
+
+/* Header */
+.main-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    padding: 20px 0;
+    background: rgba(10, 10, 10, 0.8);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.main-header.scrolled {
+    padding: 15px 0;
+    background: rgba(10, 10, 10, 0.95);
+}
+
+.main-header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-family: var(--font-serif);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.main-nav ul {
+    display: flex;
+    list-style: none;
+}
+
+.main-nav ul li {
+    margin-left: 30px;
+}
+
+.main-nav ul li a {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: 1.1rem;
+    padding: 10px 0;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.main-nav ul li a:hover,
+.main-nav ul li a.active {
+    color: var(--white);
+    border-bottom-color: var(--gold);
+}
+
+.hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+    background: none;
+    border: 0;
+    padding: 8px;
+    color: var(--gold);
+}
+
+.hamburger .line {
+    width: 25px;
+    height: 2px;
+    background-color: var(--gold);
+    margin: 4px 0;
+    transition: 0.3s;
+}
+
+/* Hero Section */
+.hero {
+    /* 先给不支持 dvh 的浏览器的兜底值，再覆盖成动态视口高度，
+       避免 iOS Safari 地址栏收合时首屏跳动 */
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    padding-top: 120px; /* 进一步增加padding-top，确保hero内容完全不被header遮挡 */
+    margin-top: -10px; /* 添加负margin，让hero背景延伸到header下方 */
+}
+
+.hero-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--black);
+    z-index: -2;
+}
+
+#particles-js {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
+/* 调整hero-content的位置，确保在header下方正确显示 */
+.hero-content {
+    animation: fadeIn 2s ease-in-out;
+    z-index: 1;
+    margin-top: 60px; /* 增加margin-top值，将文字位置下调 */
+}
+
+.hero h1 {
+    font-size: 5rem;
+    margin-bottom: 20px;
+    letter-spacing: 5px;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+}
+
+.hero p {
+    font-size: 1.5rem;
+    color: var(--light-gray);
+    max-width: 600px;
+    margin: 0 auto 30px;
+}
+
+.cta-button {
+    display: inline-block;
+    padding: 15px 35px;
+    border: 2px solid var(--gold);
+    border-radius: 50px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.cta-button:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 100%;
+    background-color: var(--gold);
+    transition: all 0.4s ease;
+    z-index: -1;
+}
+
+.cta-button:hover {
+    color: var(--black);
+}
+
+.cta-button:hover:before {
+    width: 100%;
+}
+
+/* General Section Styling */
+.section {
+    padding: 100px 0;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.section-title {
+    text-align: center;
+    font-size: 3rem;
+    margin-bottom: 60px;
+    position: relative;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 3px;
+    background: var(--gold);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+/* About Section */
+.about-content {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.about-content h3 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+}
+
+.about-content p {
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+}
+
+/* 学校 / 求职意向 / 到岗时间 / 城市：HR 只看这几行 */
+.about-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 25px 0 5px;
+    padding: 0;
+}
+
+.about-meta-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    background: var(--dark-gray);
+    border: 1px solid rgba(255, 215, 0, 0.25);
+    border-radius: 20px;
+    padding: 6px 14px;
+}
+
+.about-meta dt {
+    font-size: 0.8rem;
+    color: #a0a0a0;
+}
+
+.about-meta dd {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--gold);
+}
+
+.about-toolbar {
+    margin-top: 25px;
+    text-align: center;
+}
+
+.ghost-button {
+    display: inline-block;
+    padding: 10px 20px;
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--gold);
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.ghost-button:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--black);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: var(--gold);
+}
+
+.editor-hint {
+    font-size: 0.85rem;
+    color: #a0a0a0;
+    border-left: 2px solid rgba(255, 215, 0, 0.4);
+    padding-left: 12px;
+    margin-bottom: 25px;
+}
+
+.editor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 20px;
+}
+
+.editor-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.editor-actions .submit-button {
+    width: auto;
+    flex: 1 1 140px;
+    padding: 12px 24px;
+}
+
+.editor-status {
+    margin-top: 15px;
+    padding: 10px 14px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+.editor-status.is-success {
+    border-color: var(--gold);
+    background: rgba(255, 215, 0, 0.08);
+    color: var(--gold);
+}
+
+.editor-status.is-error {
+    border-color: var(--error);
+    background: rgba(242, 139, 130, 0.08);
+    color: var(--error);
+}
+
+/* ---------- 管理员入口 ---------- */
+
+/* 右下角悬浮小按钮：这是整站唯一可见的管理入口。
+   刻意压得很淡，hr 浏览时几乎注意不到，鼠标移上去才变清楚。 */
+.admin-fab {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 90;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 215, 0, 0.25);
+    border-radius: 999px;
+    background: rgba(10, 10, 10, 0.75);
+    backdrop-filter: blur(6px);
+    color: rgba(255, 215, 0, 0.55);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0.45;
+    transition: opacity 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.admin-fab:hover,
+.admin-fab:focus-visible {
+    opacity: 1;
+    color: var(--gold);
+    border-color: var(--gold);
+}
+
+/* 登录后显示成实心，一眼能看出当前处于管理态 */
+.admin-fab.is-active {
+    opacity: 1;
+    color: var(--black);
+    background: var(--gold);
+    border-color: var(--gold);
+}
+
+/* 还在用初始口令时的提醒条 */
+.admin-warning {
+    margin-top: 15px;
+    padding: 12px 16px;
+    border: 1px solid var(--error);
+    background: rgba(242, 139, 130, 0.08);
+    border-radius: 5px;
+    color: var(--error);
+    font-size: 0.9rem;
+}
+
+.link-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .admin-fab {
+        right: 14px;
+        bottom: 14px;
+        padding: 7px 12px;
+    }
+}
+
+.editor-export {
+    width: 100%;
+    margin-top: 15px;
+    padding: 12px;
+    background-color: #111;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 5px;
+    color: var(--light-gray);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8rem;
+    resize: vertical;
+}
+
+@media (max-width: 480px) {
+    .editor-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.skills-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.skills-list li.skill-tag {
+    background: var(--dark-gray);
+    padding: 8px 15px;
+    border-radius: 20px;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-size: 0.9rem;
+    transition: transform 0.3s ease, background 0.3s ease, color 0.3s ease;
+}
+
+.skills-list li.skill-tag:hover {
+    background: var(--gold);
+    color: var(--black);
+    transform: translateY(-3px);
+}
+
+/* Contact Section */
+.contact-form {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.contact-intro {
+    text-align: center;
+    max-width: 600px;
+    margin: -40px auto 60px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 15px;
+    background-color: var(--dark-gray);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 5px;
+    color: var(--light-gray);
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.form-group input[aria-invalid="true"],
+.form-group textarea[aria-invalid="true"] {
+    border-color: var(--error);
+}
+
+.form-error {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--error);
+}
+
+.form-status.is-success {
+    border-color: var(--gold);
+    background: rgba(255, 215, 0, 0.08);
+    color: var(--gold);
+}
+
+.form-status.is-error {
+    border-color: var(--error);
+    background: rgba(242, 139, 130, 0.08);
+    color: var(--error);
+}
+
+.submit-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.submit-button:disabled:hover {
+    background: transparent;
+    color: var(--gold);
+    box-shadow: none;
+}
+
+.form-group textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+/* 文本显示优化 */
+p {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+    white-space: normal;
+}
+
+/* 确保所有容器不会意外截断内容 */
+.section {
+    overflow: visible;
+}
+
+/* 防止标题被截断 */
+h1, h2, h3, h4 {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+/* 修复联系表单提交按钮样式，确保与其他按钮样式一致 */
+.submit-button {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    border: 2px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.4s ease;
+}
+
+.submit-button:hover {
+    background: var(--gold);
+    color: var(--black);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+}
+
+/* Footer */
+.main-footer {
+    background: var(--dark-gray);
+    padding: 50px 0;
+    text-align: center;
+}
+
+.footer-socials {
+    margin-bottom: 20px;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+}
+
+/* 间距统一交给父级的 gap，这里不再叠加 margin */
+.footer-socials a {
+    font-size: 1.5rem;
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.social-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 50%;
+    color: var(--gold);
+    transition: transform 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.social-link:hover {
+    border-color: var(--gold);
+    background: rgba(255, 215, 0, 0.08);
+    color: var(--white);
+    transform: translateY(-5px);
+}
+
+.footer-copyright {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-section {
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.fade-in-section.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .logo {
+        font-size: 1.5rem;
+    }
+
+    .main-nav {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 70%;
+        height: 100vh;
+        background: var(--dark-gray);
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        transition: right 0.5s ease-in-out;
+        box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+    }
+
+    .main-nav.active {
+        right: 0;
+    }
+
+    .main-nav ul {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .main-nav ul li {
+        margin: 20px 0;
+        margin-left: 0;
+    }
+
+    .main-nav ul li a {
+        font-size: 1.5rem;
+    }
+
+    .hamburger {
+        display: flex;
+        z-index: 1001;
+    }
+
+    .hamburger.active .line:nth-child(1) {
+        transform: rotate(-45deg) translate(-6px, 6px);
+    }
+    .hamburger.active .line:nth-child(2) {
+        opacity: 0;
+    }
+    .hamburger.active .line:nth-child(3) {
+        transform: rotate(45deg) translate(-6px, -6px);
+    }
+
+    .hero h1 {
+        font-size: 3rem;
+    }
+
+    .hero p {
+        font-size: 1.2rem;
+    }
+
+    .about-content {
+        text-align: center;
+    }
+
+    .about-meta {
+        justify-content: center;
+    }
+
+    .editor-actions {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        width: 95%;
+    }
+
+    .hero h1 {
+        font-size: 2.5rem;
+    }
+
+    .hero p {
+        font-size: 1rem;
+    }
+
+    .section-title {
+        font-size: 2.2rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+
+    .fade-in-section {
+        opacity: 1;
+        transform: none;
+    }
+}

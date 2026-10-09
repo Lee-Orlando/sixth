@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyq - 个人博客与作品集</title>
+
+    <meta name="description" content="Lyq 的个人站点：记录前端学习、工程实践与独立项目探索，包含全栈开发、独立游戏与网络安全相关的文章与作品集。">
+    <meta name="author" content="Lyq">
+    <meta name="keywords" content="前端开发,全栈工程师,Vue,React,Node.js,个人博客,作品集">
+    <meta name="theme-color" content="#0a0a0a">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Lyq - 个人博客与作品集">
+    <meta property="og:description" content="探索、创造、分享 —— 记录前端学习与工程实践的数字花园。">
+    <!-- TODO: 有真实头像后再换一张 og:image（建议 1200x630），并把 /og-image.png 放到站点根目录 -->
+    <meta property="og:image" content="og-image.svg">
+    <meta name="twitter:card" content="summary">
+
+    <!-- 联系表单的云函数 HTTP 触发地址（CloudBase HTTP 访问服务）。
+         留空则表单不会假装提交成功，而是提示改用邮件联系。 -->
+    <meta name="contact-endpoint" content="https://myweb-d5g4zy1ia380a37eb.service.tcloudbase.com/contact">
+
+    <!-- 「关于我」内容的读写接口（CloudBase HTTP 访问服务）。
+         公开读取，写入需要管理员凭证；留空则只展示源码里的静态内容。 -->
+    <meta name="content-endpoint" content="https://myweb-d5g4zy1ia380a37eb.service.tcloudbase.com/content">
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0a0a'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='36' font-weight='700' fill='%23FFD700' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
+
+    <!-- JS 被禁用或加载失败时，滚动淡入的元素必须能看到，否则正文整片空白 -->
+    <noscript>
+        <style>
+            .fade-in-section { opacity: 1; transform: none; }
+        </style>
+    </noscript>
+
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header id="mainHeader" class="main-header">
+        <div class="container">
+            <a href="#hero" class="logo">Lyq</a>
+            <nav id="mainNav" class="main-nav" aria-label="主导航">
+                <ul>
+                    <li><a href="#hero">首页</a></li>
+                    <li><a href="#about">关于</a></li>
+                    <li><a href="#contact">联系</a></li>
+                </ul>
+            </nav>
+            <button type="button" id="hamburger" class="hamburger" aria-controls="mainNav" aria-expanded="false" aria-label="打开导航菜单">
+                <span class="line"></span>
+                <span class="line"></span>
+                <span class="line"></span>
+            </button>
+        </div>
+    </header>
+
+    <main id="main">
+        <section class="hero section" id="hero">
+            <div class="hero-background"></div>
+            <div id="particles-js" aria-hidden="true"></div>
+            <div class="hero-content">
+                <h1>探索、创造、分享</h1>
+                <p>欢迎来到我的数字花园，在这里我记录我的学习、思考和创造之旅。</p>
+                <a href="#about" class="cta-button">了解更多</a>
+            </div>
+        </section>
+
+        <section class="about section fade-in-section" id="about">
+            <div class="container">
+                <div class="about-content">
+                    <h2 class="section-title">关于我</h2>
+
+                    <!-- 默认内容直接写在 HTML 里，禁用 JS 时也读得到。
+                         浏览器里存过草稿时，js/main.js 会用草稿覆盖这些节点。 -->
+                    <div id="aboutView">
+                        <p data-field="lead">我是 Lyq，正在找前端开发方向的第一份工作。这个站点是我从零搭起来的：纯静态、零构建、零第三方库，联系表单走腾讯云开发的 Serverless 云函数。</p>
+                        <p data-field="more">目前主要写 HTML、CSS 和 JavaScript，同时在补 React 与 Node.js 的工程经验。比起堆技术名词，我更想把手上的东西做完整——能跑起来、能被别人真的用上。</p>
+
+                        <dl class="about-meta">
+                            <div class="about-meta-item"><dt>学校</dt><dd data-field="school">待填写</dd></div>
+                            <div class="about-meta-item"><dt>求职意向</dt><dd data-field="role">前端开发工程师</dd></div>
+                            <div class="about-meta-item"><dt>到岗时间</dt><dd data-field="available">待填写</dd></div>
+                            <div class="about-meta-item"><dt>所在城市</dt><dd data-field="city">待填写</dd></div>
+                        </dl>
+
+                        <h3>我的技能</h3>
+                        <ul class="skills-list" id="skillsList">
+                            <li class="skill-tag">HTML5</li>
+                            <li class="skill-tag">CSS3</li>
+                            <li class="skill-tag">JavaScript</li>
+                            <li class="skill-tag">React</li>
+                            <li class="skill-tag">Vue.js</li>
+                            <li class="skill-tag">Node.js</li>
+                            <li class="skill-tag">Python</li>
+                            <li class="skill-tag">MySQL</li>
+                            <li class="skill-tag">Git</li>
+                        </ul>
+                    </div>
+
+                    <!-- 默认隐藏：只有访问 #edit、或本机存过草稿时才出现，普通访客看不到编辑入口 -->
+                    <div class="about-toolbar" id="aboutToolbar" hidden>
+                        <button type="button" class="ghost-button" id="editAbout">编辑这段内容</button>
+                    </div>
+
+                    <!-- 管理员登录：身份没验证过之前，编辑器不会露出来 -->
+                    <form class="about-editor admin-login" id="adminLogin" hidden>
+                        <p class="editor-hint">这一段只有管理员能改。请输入管理员账号。</p>
+                        <div class="form-group">
+                            <label for="adminUsername">用户名</label>
+                            <input type="text" id="adminUsername" name="username" autocomplete="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="adminPassword">口令</label>
+                            <input type="password" id="adminPassword" name="password" autocomplete="current-password" required>
+                        </div>
+                        <div class="editor-actions">
+                            <button type="submit" class="submit-button" id="loginSubmit">登录</button>
+                            <button type="button" class="ghost-button" id="loginCancel">取消</button>
+                        </div>
+                        <p class="editor-status" id="loginStatus" role="status" aria-live="polite" hidden></p>
+                    </form>
+
+                    <!-- 初始口令写在源码里，等于公开，登录后第一件事就该换掉 -->
+                    <p class="admin-warning" id="seedWarning" hidden role="alert">
+                        你还在用初始口令。它写在项目源码里，猜到的人都能改这个页面。
+                        <button type="button" class="link-button" id="seedFix">现在换一个</button>
+                    </p>
+
+                    <!-- 修改管理员口令 -->
+                    <form class="about-editor admin-change" id="passwordForm" hidden>
+                        <p class="editor-hint">口令不会以明文保存，服务端只留加盐哈希。</p>
+                        <div class="form-group">
+                            <label for="newPassword">新口令（至少 6 位）</label>
+                            <input type="password" id="newPassword" autocomplete="new-password" minlength="6" required>
+                        </div>
+                        <div class="editor-actions">
+                            <button type="submit" class="submit-button" id="changePasswordSubmit">更新口令</button>
+                            <button type="button" class="ghost-button" id="cancelPassword">返回</button>
+                        </div>
+                        <p class="editor-status" id="passwordStatus" role="status" aria-live="polite" hidden></p>
+                    </form>
+
+                    <form class="about-editor" id="aboutEditor" hidden>
+                        <p class="editor-hint">改动保存在云端数据库，保存后所有访客刷新即可看到。</p>
+
+                        <div class="form-group">
+                            <label for="afLead">第一段自我介绍</label>
+                            <textarea id="afLead" name="lead" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="afMore">第二段自我介绍</label>
+                            <textarea id="afMore" name="more" rows="3"></textarea>
+                        </div>
+
+                        <div class="editor-grid">
+                            <div class="form-group">
+                                <label for="afSchool">学校</label>
+                                <input type="text" id="afSchool" name="school" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="afRole">求职意向</label>
+                                <input type="text" id="afRole" name="role" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="afAvailable">到岗时间</label>
+                                <input type="text" id="afAvailable" name="available" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="afCity">所在城市</label>
+                                <input type="text" id="afCity" name="city" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="afSkills">技能（逗号或顿号分隔）</label>
+                            <input type="text" id="afSkills" name="skills" autocomplete="off">
+                        </div>
+
+                        <div class="editor-actions">
+                            <button type="submit" class="submit-button" id="saveAbout">保存并发布</button>
+                            <button type="button" class="ghost-button" id="changePasswordToggle">修改口令</button>
+                            <button type="button" class="ghost-button" id="exportAbout">导出备份</button>
+                            <button type="button" class="ghost-button" id="cancelEdit">取消</button>
+                            <button type="button" class="ghost-button" id="resetAbout">重置为默认</button>
+                            <button type="button" class="ghost-button" id="logoutAbout">退出登录</button>
+                        </div>
+
+                        <p class="editor-status" id="editorStatus" role="status" aria-live="polite" hidden></p>
+                        <textarea class="editor-export" id="exportBox" rows="8" readonly hidden aria-label="导出的 JSON"></textarea>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <section class="contact section fade-in-section" id="contact">
+            <div class="container">
+                <h2 class="section-title">联系我</h2>
+                <p class="contact-intro">有想聊聊技术和生活？随时给我留言。</p>
+
+                <!-- 提交由 js/main.js 接管，用 fetch 发到 <meta name="contact-endpoint"> 指向的云函数。
+                     保留 novalidate 是为了用自定义的即时校验，而不是浏览器默认气泡。 -->
+                <form class="contact-form" id="contactForm" action="#" method="POST" novalidate>
+                    <p class="form-status" id="formStatus" role="status" aria-live="polite" hidden></p>
+
+                    <div class="form-group">
+                        <label class="visually-hidden" for="contactName">您的姓名</label>
+                        <input type="text" id="contactName" name="name" placeholder="您的姓名" autocomplete="name" required aria-describedby="nameError">
+                        <span class="form-error" id="nameError" hidden></span>
+                    </div>
+                    <div class="form-group">
+                        <label class="visually-hidden" for="contactEmail">您的邮箱</label>
+                        <input type="email" id="contactEmail" name="email" placeholder="您的邮箱" autocomplete="email" required aria-describedby="emailError">
+                        <span class="form-error" id="emailError" hidden></span>
+                    </div>
+                    <div class="form-group">
+                        <label class="visually-hidden" for="contactMessage">您的留言</label>
+                        <textarea id="contactMessage" name="message" placeholder="您的留言" rows="5" required aria-describedby="messageError"></textarea>
+                        <span class="form-error" id="messageError" hidden></span>
+                    </div>
+                    <button type="submit" class="submit-button">发送留言</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <ul class="footer-socials">
+                <li>
+                    <a href="https://github.com/Lee-Orlando" class="social-link" aria-label="GitHub 主页：Lee-Orlando" rel="noopener noreferrer" target="_blank">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true" focusable="false">
+                            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+                        </svg>
+                    </a>
+                </li>
+                <li>
+                    <a href="mailto:18546266901@163.com?subject=%E6%9D%A5%E8%87%AA%E4%B8%AA%E4%BA%BA%E7%AB%99%E7%82%B9%E7%9A%84%E7%95%99%E8%A8%80" class="social-link" aria-label="发送邮件到 18546266901@163.com">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                            <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+                            <path d="M3 7.5l9 6 9-6"></path>
+                        </svg>
+                    </a>
+                </li>
+            </ul>
+            <div class="footer-copyright">
+                <p>&copy; <span id="copyright-year"></span> Lyq. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 管理员入口：整站唯一可见的编辑入口。默认 hidden，由 JS 显示，
+         所以禁用 JS 的访客看不到它——反正那时候登录也用不了。 -->
+    <button type="button" class="admin-fab" id="adminFab" hidden aria-label="进入站点管理">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+        </svg>
+        <span>管理</span>
+    </button>
+
+    <script src="js/main.js" defer></script>
+</body>
+</html>

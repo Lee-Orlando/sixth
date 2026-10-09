@@ -1,0 +1,18 @@
+node_modules/
+cloudfunctions/*/node_modules/
+
+.DS_Store
+Thumbs.db
+
+*.log
+npm-debug.log*
+
+.env
+.env.local
+
+# 含真实 CloudBase 环境 ID，不进版本库；用 cloudbaserc.example.json 作为模板
+cloudbaserc.json
+
+.idea/
+.vscode/
+*.swp
