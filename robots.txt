@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://myweb-d5g4zy1ia380a37eb-1355683256.tcloudbaseapp.com/sitemap.xml

@@ -18,13 +18,15 @@
     <meta name="twitter:card" content="summary">
 
     <!-- 联系表单的云函数 HTTP 触发地址（CloudBase HTTP 访问服务）。
-         留空则表单不会假装提交成功，而是提示改用邮件联系。 -->
-    <meta name="contact-endpoint" content="https://myweb-d5g4zy1ia380a37eb.service.tcloudbase.com/contact">
+         留空则表单不会假装提交成功，而是提示改用邮件联系。
+         真实地址写在 site.config.js（已被 gitignore），下面这行只是兜底，仓库里保持为空。 -->
+    <meta name="contact-endpoint" content="">
 
     <!-- 站点内容的读写接口（CloudBase HTTP 访问服务）。
          按区块读写：GET 拿全部区块，POST {section, content} 写单个区块。
-         留空则只展示源码里的静态内容，管理面板会如实提示「没能连上云端」。 -->
-    <meta name="content-endpoint" content="https://myweb-d5g4zy1ia380a37eb.service.tcloudbase.com/content">
+         留空则只展示源码里的静态内容，管理面板会如实提示「没能连上云端」。
+         真实地址同上，来自 site.config.js。 -->
+    <meta name="content-endpoint" content="">
 
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230a0a0a'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='36' font-weight='700' fill='%23FFD700' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -206,6 +208,9 @@
         </form>
     </aside>
 
+    <!-- 站点配置：含真实云函数地址，被 .gitignore 排除。
+         文件不存在时页面照常工作，只是读不到云端内容、变成只读，不会报错。 -->
+    <script src="site.config.js" defer></script>
     <script src="js/main.js" defer></script>
 </body>
 </html>

@@ -45,8 +45,12 @@ sixth-main/
 ├── 404.html                    # 静态托管自定义错误页
 ├── favicon.svg                 # 站点图标
 ├── og-image.svg                # 社交分享预览图（上线前建议换成 PNG）
-├── robots.txt                  # 爬虫规则
-├── sitemap.xml                 # 站点地图
+├── site.config.js              # 云函数地址与站点域名（含环境 ID，不进版本库）
+├── site.config.example.js      # 上面那个文件的模板，照着复制再填自己的地址
+├── robots.txt                  # 爬虫规则（含真实域名，不进版本库）
+├── sitemap.xml                 # 站点地图（含真实域名，不进版本库）
+├── robots.example.txt          # robots.txt 的模板
+├── sitemap.example.xml         # sitemap.xml 的模板
 ├── cloudbaserc.json            # CloudBase CLI 部署配置（含环境 ID，不进版本库）
 ├── css/styles.css              # 全部样式，含响应式与无障碍规则
 ├── js/main.js                  # 交互逻辑，IIFE 封装，零全局变量
@@ -136,7 +140,9 @@ POST /content            { section, content }  写单个区块
 这个项目的重心是「前台管理员改完推送给后端」，所以整套凭据体系被拿掉了。
 
 代价要写得明明白白：**知道接口地址的人就能改首页文案。**
-接口地址写在 `index.html` 的 meta 里，等于公开。
+地址虽然已经从公开仓库里摘走了（`site.config.js` 被 gitignore），
+但浏览器一旦发起请求，地址就出现在网络面板里，防不住有心人——
+摘走它只是避免把环境 ID 印在公开仓库，不等于加了锁。
 
 想要收回来的话，最省事的一招：给 `content` 云函数配一个环境变量 `WRITE_KEY`，
 写操作比对它，前端在面板里多问一次这个密钥。**别把密钥写进存储桶的 JSON**——
@@ -224,12 +230,23 @@ tcb fn deploy content --dir ./cloudfunctions/content --path /content --runtime N
 >
 > 另外 `tcb routes add` 对系统分配的内置域名不生效，访问路由只能靠 `fn deploy --path` 自动建。
 
-拿到形如 `https://<env>.service.tcloudbase.com/contact` 的地址后，填进 `index.html`：
+拿到形如 `https://<env>.service.tcloudbase.com/contact` 的地址后，填进 `site.config.js`
+（从 `site.config.example.js` 复制而来）：
 
-```html
-<meta name="contact-endpoint" content="https://<env>.service.tcloudbase.com/contact">
-<meta name="content-endpoint" content="https://<env>.service.tcloudbase.com/content">
+```js
+(function (root) {
+    root.SITE_CONFIG = {
+        contactEndpoint: 'https://<env>.service.tcloudbase.com/contact',
+        contentEndpoint: 'https://<env>.service.tcloudbase.com/content',
+        siteUrl: 'https://<env>-<appId>.tcloudbaseapp.com'
+    };
+})(typeof window !== 'undefined' ? window : globalThis);
 ```
+
+为什么不直接写在 `index.html` 的 meta 里：那个地址里含环境 ID，而仓库是公开的。
+抽出成一个被 gitignore 的文件之后，公开仓库里看不到环境 ID，
+本地和部署照常工作（`index.html` 里留空的 meta 只是兜底）。
+**部署时记得把这个文件一起传上去**，否则页面会退回只读。
 
 然后：
 
@@ -237,8 +254,9 @@ tcb fn deploy content --dir ./cloudfunctions/content --path /content --runtime N
 tcb hosting deploy ./ -e <你的环境ID> --exclude "cloudfunctions/**" "cloudbaserc.json" ".gitignore"
 ```
 
-CloudBase 会返回一个默认域名（形如 `xxx.tcloudbaseapp.com`），记得把它回填到
-`robots.txt` 和 `sitemap.xml` 里的 `REPLACE_ME` 占位处。
+CloudBase 会返回一个默认域名（形如 `xxx.tcloudbaseapp.com`），填回 `site.config.js` 的
+`siteUrl`，并同步进 `robots.txt` 和 `sitemap.xml`（模板分别是 `robots.example.txt` /
+`sitemap.example.xml`，把里面的占位域名换成自己的即可）。
 
 > 绑定自己的域名需要 ICP 备案。未备案时直接用 CloudBase 默认域名即可正常访问和被收录。
 

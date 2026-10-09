@@ -311,11 +311,25 @@
     };
 
     /**
-     * 云函数 HTTP 触发地址。
-     * 配在 index.html 的 <meta name="contact-endpoint"> 里，部署时替换成自己的地址即可。
-     * 留空则不开通线上提交能力（而不是假装成功）。
+     * 站点配置来自 site.config.js（含真实云函数地址，被 gitignore 排除，不进公开仓库）。
+     * 没有这个文件就退回 index.html 的 meta 兜底值；两者都为空即视为「还没开通」。
+     * 注意：这里只接受 http/https，避免有人在配置里塞 javascript: 之类的伪协议。
+     */
+    function readConfigValue(key) {
+        const config = window.SITE_CONFIG;
+        if (!config || typeof config !== 'object') return '';
+        const value = config[key];
+        if (typeof value !== 'string') return '';
+        const trimmed = value.trim();
+        return /^https?:\/\//i.test(trimmed) ? trimmed : '';
+    }
+
+    /**
+     * 联系表单的云函数地址。留空则不开通线上提交能力（而不是假装成功）。
      */
     function readContactEndpoint() {
+        const configured = readConfigValue('contactEndpoint');
+        if (configured) return configured;
         const meta = document.querySelector('meta[name="contact-endpoint"]');
         return meta ? meta.content.trim() : '';
     }
@@ -532,6 +546,8 @@
     }
 
     function readContentEndpoint() {
+        const configured = readConfigValue('contentEndpoint');
+        if (configured) return configured;
         const meta = document.querySelector('meta[name="content-endpoint"]');
         return meta ? meta.content.trim() : '';
     }
@@ -1421,7 +1437,7 @@
             if (!draft || !section) return;
 
             if (!endpoint) {
-                setStatus(key, '还没配置 content-endpoint（见 index.html 的 meta），现在改的内容不会保存。', 'error');
+                setStatus(key, '还没配置 content-endpoint（见 site.config.js），现在改的内容不会保存。', 'error');
                 return;
             }
 
@@ -1538,7 +1554,7 @@
 
         hint.textContent = endpoint
             ? '改完点保存，内容写入云端后所有访客刷新即可看到。每个区块单独保存，互不覆盖。'
-            : '还没配置 content-endpoint，面板只能看不能存：在 index.html 的 <meta name="content-endpoint"> 里填上云函数地址，或直接用邮件改内容。';
+            : '还没配置 content-endpoint，面板只能看不能存：把 site.config.example.js 复制成 site.config.js 并填上云函数地址，或直接用邮件改内容。';
         fab.hidden = false;
 
         if (window.location.hash === '#edit') openPanel();

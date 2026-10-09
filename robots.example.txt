@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# 把下面的域名换成自己的站点根地址
+Sitemap: https://your-env-0000000000.tcloudbaseapp.com/sitemap.xml

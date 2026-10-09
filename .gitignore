@@ -13,6 +13,12 @@ npm-debug.log*
 # 含真实 CloudBase 环境 ID，不进版本库；用 cloudbaserc.example.json 作为模板
 cloudbaserc.json
 
+# 含真实环境 ID / 域名，不进版本库。
+# 模板分别是 site.config.example.js、robots.example.txt、sitemap.example.xml
+site.config.js
+robots.txt
+sitemap.xml
+
 .idea/
 .vscode/
 *.swp
