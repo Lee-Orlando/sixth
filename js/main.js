@@ -480,11 +480,7 @@
             label: '关于我',
             fields: [
                 { name: 'lead', label: '第一段自我介绍', type: 'textarea', rows: 3, max: 800 },
-                { name: 'more', label: '第二段自我介绍', type: 'textarea', rows: 3, max: 800 },
-                { name: 'school', label: '学校', max: 80 },
-                { name: 'role', label: '求职意向', max: 80 },
-                { name: 'available', label: '到岗时间', max: 60 },
-                { name: 'city', label: '所在城市', max: 60 }
+                { name: 'more', label: '第二段自我介绍', type: 'textarea', rows: 3, max: 800 }
             ]
         },
         {

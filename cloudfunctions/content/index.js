@@ -20,7 +20,7 @@
  *
  * 区块一览：
  *   hero      首屏主标题 / 副标题 / 按钮文字
- *   about     两段自我介绍 + 学校、求职意向、到岗时间、所在城市
+ *   about     两段自我介绍
  *   skills    技能标签列表
  *   projects  作品集列表（标题、年份、简介、标签、链接）
  *   contact   联系区引导语 + 邮箱 + GitHub（页脚的两个图标也用这两个值）
@@ -139,11 +139,7 @@ const NORMALIZERS = {
     about(raw, errors) {
         return {
             lead: limited(raw.lead, 'lead', 800, errors),
-            more: limited(raw.more, 'more', 800, errors),
-            school: limited(raw.school, 'school', 80, errors),
-            role: limited(raw.role, 'role', 80, errors),
-            available: limited(raw.available, 'available', 60, errors),
-            city: limited(raw.city, 'city', 60, errors)
+            more: limited(raw.more, 'more', 800, errors)
         };
     },
 
