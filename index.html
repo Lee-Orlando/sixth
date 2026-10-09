@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyq - 前端工程师作品集</title>
+    <title>Lyq - 前端工程师个人站点</title>
 
-    <meta name="description" content="Lyq 的个人站点：记录前端学习、工程实践与独立项目探索，包含全栈开发、独立游戏与网络安全相关的文章与作品集。">
+    <meta name="description" content="Lyq 的个人站点：记录前端学习、工程实践与独立项目探索，所有内容按「空间」组织，可自行增删文字与图片。">
     <meta name="author" content="Lyq">
     <meta name="keywords" content="前端开发,全栈工程师,Vue,React,Node.js,个人博客,作品集">
     <meta name="theme-color" content="#0a0a0a">
 
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Lyq - 前端工程师作品集">
+    <meta property="og:title" content="Lyq - 前端工程师个人站点">
     <meta property="og:description" content="探索、创造、分享 —— 记录前端学习与工程实践的数字花园。">
     <!-- TODO: 有真实头像后再换一张 og:image（建议 1200x630），并把 /og-image.png 放到站点根目录 -->
     <meta property="og:image" content="og-image.svg">
@@ -49,7 +49,6 @@
                 <ul>
                     <li><a href="#hero">首页</a></li>
                     <li><a href="#about">关于</a></li>
-                    <li><a href="#projects">作品</a></li>
                     <li><a href="#contact">联系</a></li>
                 </ul>
             </nav>
@@ -104,36 +103,12 @@
             </div>
         </section>
 
-        <section class="projects section fade-in-section" id="projects">
+        <!-- 自建空间：没有固定标题，也不预设数量。
+             管理员在面板里建几个空间、往里塞文字和图片，这里就出现几张卡；
+             一个空间都还没建时整块隐藏，不会留一块空白。 -->
+        <section class="spaces section fade-in-section" id="spaces" hidden>
             <div class="container">
-                <h2 class="section-title">作品集</h2>
-                <!-- 默认作品直接写在 HTML 里，禁用 JS 时也能看到我做过什么。
-                     云端存过内容时，js/main.js 会整份替换掉这些卡片。 -->
-                <div class="projects-grid" id="projectsList" data-section="projects">
-                    <article class="project-card">
-                        <p class="project-year" data-field="year">2026</p>
-                        <h3 class="project-title" data-field="title">个人作品集站点</h3>
-                        <p class="project-summary" data-field="summary">纯静态、零构建：原生 JS 写的管理后台 + Serverless 云函数持久化，按区块读写内容，改完即时发布。</p>
-                        <ul class="project-tags" data-field="tags">
-                            <li>HTML5</li>
-                            <li>CSS3</li>
-                            <li>JavaScript</li>
-                            <li>CloudBase</li>
-                        </ul>
-                        <a class="project-link" data-field="link" href="https://github.com/Lee-Orlando" rel="noopener noreferrer" target="_blank">查看项目</a>
-                    </article>
-                    <article class="project-card">
-                        <p class="project-year" data-field="year">2026</p>
-                        <h3 class="project-title" data-field="title">留言与内容云函数</h3>
-                        <p class="project-summary" data-field="summary">联系表单与站点内容共用的 Serverless 后端：按月归档留言、按区块存储文案，数据落在云存储，冷启动在百毫秒级。</p>
-                        <ul class="project-tags" data-field="tags">
-                            <li>Node.js</li>
-                            <li>Serverless</li>
-                            <li>REST API</li>
-                        </ul>
-                        <a class="project-link" data-field="link" href="https://github.com/Lee-Orlando" rel="noopener noreferrer" target="_blank">查看源码</a>
-                    </article>
-                </div>
+                <div class="spaces-list" id="spacesList" data-section="spaces"></div>
             </div>
         </section>
 

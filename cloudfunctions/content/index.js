@@ -12,17 +12,20 @@
  * 2. 没有门槛不等于没有边界。字段白名单、数量上限、长度上限、请求体体积上限
  *    全部在服务端执行。它们挡不住有心涂改，但能挡住有人往这个桶里塞垃圾文件。
  *
- * 3. 内容按区块分文件存放：site/content/<区块>.json。改「首屏」不会碰到「作品集」，
+ * 3. 内容按区块分文件存放：site/content/<区块>.json。改「首屏」不会碰到「空间」，
  *    写入前不需要 read-modify-write，也就不存在「两个区块同时被改、互相覆盖」的问题。
  *
  * 4. 读必须带时间戳参数走 CDN 源站。同名文件的下载结果会被 CDN 缓存若干分钟，
  *    覆盖写之后直接读，拿到的是上一版，表现为「保存成功但页面没变」。
  *
+ * 5. 图片不塞进 JSON，单独上传到 site/media/YYYY-MM/ 再回落 CDN 链接。
+ *    base64 编码会让体积膨胀三分之一，塞进内容文件迟早把页面拖垮。
+ *
  * 区块一览：
  *   hero      首屏主标题 / 副标题 / 按钮文字
  *   about     两段自我介绍
  *   skills    技能标签列表
- *   projects  作品集列表（标题、年份、简介、标签、链接）
+ *   spaces    自建空间列表：每个空间有名字，内含若干「文字块 / 图片块」
  *   contact   联系区引导语 + 邮箱 + GitHub（页脚的两个图标也用这两个值）
  *   footer    页脚一行小字
  *
@@ -30,10 +33,12 @@
  *   GET  /content            读取全部区块，没有写过内容的区块返回 null
  *   GET  /content?section=X  只读一个区块
  *   POST /content            { section, content } 或 { sections: { X: {...} } }
+ *   POST /content            { action: 'upload', mimeType, data(base64) } 上传一张图片
  */
 
 'use strict';
 
+const crypto = require('crypto');
 const cloudbase = require('@cloudbase/node-sdk');
 
 const app = cloudbase.init({
@@ -41,9 +46,26 @@ const app = cloudbase.init({
 });
 
 const CONTENT_DIR = 'site/content';
-const MAX_BODY_BYTES = 64 * 1024;
+const MEDIA_DIR = 'site/media';
 
-const SECTION_KEYS = ['hero', 'about', 'skills', 'projects', 'contact', 'footer'];
+// 写一次内容顶多几十 KB，但图片是按 MB 计的。base64 还会再膨胀三分之一，
+// 余量留到 4MB，真正卡尺寸的是下面每张图单独的 MAX_IMAGE_BYTES。
+const MAX_BODY_BYTES = 4 * 1024 * 1024;
+
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_SPACES = 12;
+const MAX_BLOCKS_PER_SPACE = 30;
+
+/** 白名单而不是黑名单：只收这几种能安全内联展示的位图，
+ *  SVG 坚决不收——它是 XML，里面能塞脚本。 */
+const IMAGE_TYPES = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp'
+};
+
+const SECTION_KEYS = ['hero', 'about', 'skills', 'spaces', 'contact', 'footer'];
 
 /* ------------------------------------------------------------------ */
 /* HTTP 外壳                                                            */
@@ -148,23 +170,42 @@ const NORMALIZERS = {
         return { items };
     },
 
-    projects(raw, errors) {
+    spaces(raw, errors) {
         const rawItems = Array.isArray(raw.items) ? raw.items : [];
-        if (rawItems.length > 20) {
-            errors.items = '作品最多 20 条';
+        if (rawItems.length > MAX_SPACES) {
+            errors.items = `最多建 ${MAX_SPACES} 个空间`;
             return { items: [] };
         }
 
-        const items = rawItems.map((item, index) => {
-            const source = item && typeof item === 'object' ? item : {};
-            // 逐条标出出错的行号，前端好定位到第几个作品
-            const at = (name) => (name === 'tags' ? `第 ${index + 1} 个作品的标签` : `第 ${index + 1} 个作品的「${FIELD_LABELS[name] || name}」`);
+        const items = rawItems.map((rawSpace, index) => {
+            const source = rawSpace && typeof rawSpace === 'object' ? rawSpace : {};
+            const at = (name) => `第 ${index + 1} 个空间的${name}`;
+
+            const rawBlocks = Array.isArray(source.blocks) ? source.blocks : [];
+            if (rawBlocks.length > MAX_BLOCKS_PER_SPACE) {
+                errors[`第 ${index + 1} 个空间的内容块`] = `一个空间最多 ${MAX_BLOCKS_PER_SPACE} 块内容`;
+            }
+
+            const blocks = rawBlocks.slice(0, MAX_BLOCKS_PER_SPACE).map((rawBlock, order) => {
+                const block = rawBlock && typeof rawBlock === 'object' ? rawBlock : {};
+                const label = `第 ${index + 1} 个空间第 ${order + 1} 块`;
+
+                if (block.type === 'image') {
+                    const url = within(text(block.url), 400, `${label}图片链接`, errors);
+                    // 图片链接由前端回填，理论上只会是我们自己桶里的地址；
+                    // 既然接口公开可写，还是要保证它不可能变成 javascript: 之类的东西
+                    if (url && !/^https?:\/\/\S+$/i.test(url)) {
+                        errors[`${label}图片链接`] = `${label}图片链接必须是 http(s) 地址`;
+                    }
+                    return { type: 'image', url, alt: within(text(block.alt), 120, `${label}图片说明`, errors) };
+                }
+
+                return { type: 'text', value: within(text(block.value), 2000, `${label}文字`, errors) };
+            });
+
             return {
-                title: within(text(source.title), 80, at('title'), errors),
-                year: within(text(source.year), 16, at('year'), errors),
-                summary: within(text(source.summary), 300, at('summary'), errors),
-                tags: list(source.tags, at('tags'), 8, 16, errors),
-                link: within(text(source.link), 300, at('link'), errors)
+                name: within(text(source.name), 40, at('名字'), errors),
+                blocks
             };
         });
 
@@ -184,14 +225,6 @@ const NORMALIZERS = {
             note: limited(raw.note, 'note', 160, errors)
         };
     }
-};
-
-const FIELD_LABELS = {
-    title: '标题',
-    year: '年份',
-    summary: '简介',
-    tags: '标签',
-    link: '链接'
 };
 
 /** 字符串字段：超长报错，但仍然返回原值，方便前端照原样回填让用户改 */
@@ -306,6 +339,77 @@ async function writeJson(path, data) {
     return result;
 }
 
+/* ------------------------------------------------------------------ */
+/* 图片上传                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 只看文件头。声明的 MIME 是浏览器给的，改一下就能骗过去；
+ * 文件头是文件内容的一部分，改了就不是那种格式了。
+ */
+function looksLike(buffer, mimeType) {
+    if (buffer.length < 12) return false;
+    switch (mimeType) {
+        case 'image/png':
+            return buffer[0] === 0x89 && buffer.toString('ascii', 1, 4) === 'PNG';
+        case 'image/jpeg':
+            return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+        case 'image/gif':
+            return buffer.toString('ascii', 0, 4) === 'GIF8';
+        case 'image/webp':
+            return buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+        default:
+            return false;
+    }
+}
+
+function mediaPath(extension) {
+    const now = new Date();
+    const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    return `${MEDIA_DIR}/${month}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${extension}`;
+}
+
+/**
+ * 收一张 base64 图片，写进云存储，回给它能直接放进 <img src> 的公网地址。
+ * 存储桶默认是公有读的，所以这一步拿到的 URL 天然可以被 <img> 直接引用。
+ */
+async function handleUpload(body, origin) {
+    const mimeType = String(body.mimeType || '').toLowerCase();
+    const extension = IMAGE_TYPES[mimeType];
+    if (!extension) {
+        return respond(400, { ok: false, message: '只支持 PNG / JPG / GIF / WebP 图片' }, origin);
+    }
+
+    const raw = String(body.data || '').replace(/^data:image\/[a-z+]+;base64,/, '');
+    const buffer = Buffer.from(raw, 'base64');
+    if (!buffer.length) {
+        return respond(400, { ok: false, message: '图片内容是空的' }, origin);
+    }
+    if (buffer.length > MAX_IMAGE_BYTES) {
+        return respond(413, {
+            ok: false,
+            message: `单张图片不能超过 ${Math.floor(MAX_IMAGE_BYTES / 1024 / 1024)}MB，这张 ${(buffer.length / 1024 / 1024).toFixed(2)}MB`
+        }, origin);
+    }
+    if (!looksLike(buffer, mimeType)) {
+        return respond(400, { ok: false, message: '文件内容跟它声明的格式对不上，换张图试试' }, origin);
+    }
+
+    try {
+        const path = mediaPath(extension);
+        const result = await app.uploadFile({ cloudPath: path, fileContent: buffer });
+        if (result && result.fileID) learnBucket(result.fileID);
+        return respond(200, {
+            ok: true,
+            url: `https://${cdnBucket || guessBucket()}.tcb.qcloud.la/${path}`,
+            bytes: buffer.length
+        }, origin);
+    } catch (error) {
+        console.error('[content] 图片写入失败:', error);
+        return respond(500, { ok: false, message: '图片没传上去，稍后再试一次。' }, origin);
+    }
+}
+
 /** 并发读取多个区块，单个区块读失败不影响其余 */
 async function readSections(keys) {
     const entries = await Promise.all(
@@ -374,6 +478,11 @@ exports.main = async (event = {}) => {
     }
 
     const body = parsePayload(event);
+
+    /* ---- 上传一张图片：不进 JSON，单独落到 site/media/ 下 ---- */
+    if (body.action === 'upload') {
+        return handleUpload(body, origin);
+    }
 
     /* 一次提交多个区块时，逐个校验：任一区块不合格就整批退回，
        免得出现「一半写进去一半没写进去」的状态 */

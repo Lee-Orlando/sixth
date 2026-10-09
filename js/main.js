@@ -459,7 +459,7 @@
     /* ---------------- 站点内容：按区块读写 + 管理面板 ---------------- */
 
     /**
-     * 一张表定义整站可管理的内容：SEO 之外的文案、技能、作品集都在这里。
+     * 一张表定义整站可管理的内容：SEO 之外的文案、技能、自建空间都在这里。
      * 加一个新区块的流程：① HTML 里放一段带 data-section 的默认内容
      *                    ② 这里加一条 ③ 云函数 content/index.js 的 NORMALIZERS 里加一个整理函数
      * 字段层面的 type 目前有三种：text（默认）、textarea、tags（数组）；
@@ -491,18 +491,16 @@
             ]
         },
         {
-            key: 'projects',
-            label: '作品集',
+            key: 'spaces',
+            label: '空间',
             list: {
-                label: '作品',
-                maxItems: 20,
+                label: '空间',
+                maxItems: 12,
                 fields: [
-                    { name: 'title', label: '标题', max: 80 },
-                    { name: 'year', label: '年份', max: 16 },
-                    { name: 'summary', label: '简介', type: 'textarea', rows: 2, max: 300 },
-                    { name: 'tags', label: '技术标签', type: 'tags', hint: '逗号或顿号分隔', maxItems: 8, itemMax: 16 },
-                    { name: 'link', label: '链接', max: 300, url: true, placeholder: 'https://' }
-                ]
+                    { name: 'name', label: '空间名字', max: 40, placeholder: '例如：读书笔记 / 摄影 / 项目记录' }
+                ],
+                // 每个空间除了这些字段，还能往下塞文字块和图片块
+                blocks: true
             }
         },
         {
@@ -641,49 +639,68 @@
         });
     }
 
-    function renderProjectCard(item) {
-        const card = document.createElement('article');
-        card.className = 'project-card';
+    /* ---- 空间：管理员自己建的容器，里面按顺序摆文字块和图片块 ---- */
 
-        const year = document.createElement('p');
-        year.className = 'project-year';
-        year.setAttribute('data-field', 'year');
-        year.textContent = item.year || '';
+    function renderTextBlock(block) {
+        const text = String((block && block.value) || '').trim();
+        // 空块不渲染，免得页面上留一个个看不见的段落
+        if (!text) return null;
 
-        const title = document.createElement('h3');
-        title.className = 'project-title';
-        title.setAttribute('data-field', 'title');
-        title.textContent = item.title || '未命名作品';
+        const p = document.createElement('p');
+        p.className = 'space-text';
+        p.textContent = text;
+        return p;
+    }
 
-        const summary = document.createElement('p');
-        summary.className = 'project-summary';
-        summary.setAttribute('data-field', 'summary');
-        summary.textContent = item.summary || '';
+    function renderImageBlock(block) {
+        const url = safeUrl(block && block.url);
+        if (!url) return null;
 
-        const tags = document.createElement('ul');
-        tags.className = 'project-tags';
-        tags.setAttribute('data-field', 'tags');
-        (item.tags || []).forEach((text) => {
-            const li = document.createElement('li');
-            li.textContent = text;
-            tags.appendChild(li);
-        });
+        const figure = document.createElement('figure');
+        figure.className = 'space-media';
 
-        card.append(year, title, summary, tags);
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = String((block && block.alt) || '');
+        // 图片可能有好几张，别让它们挡住后面的内容渲染
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        figure.appendChild(img);
 
-        const href = safeUrl(item.link);
-        if (href) {
-            const link = document.createElement('a');
-            link.className = 'project-link';
-            link.setAttribute('data-field', 'link');
-            link.href = href;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = '查看项目';
-            card.appendChild(link);
+        const caption = String((block && block.alt) || '').trim();
+        if (caption) {
+            const figcaption = document.createElement('figcaption');
+            figcaption.textContent = caption;
+            figure.appendChild(figcaption);
         }
 
+        return figure;
+    }
+
+    function renderSpaceCard(space) {
+        const card = document.createElement('article');
+        card.className = 'space-card';
+
+        const name = String((space && space.name) || '').trim();
+        if (name) {
+            const title = document.createElement('h3');
+            title.className = 'space-title';
+            title.textContent = name;
+            card.appendChild(title);
+        }
+
+        (space.blocks || []).forEach((block) => {
+            const node = block && block.type === 'image' ? renderImageBlock(block) : renderTextBlock(block);
+            if (node) card.appendChild(node);
+        });
+
         return card;
+    }
+
+    /** 一个空间都没有时，整块收起来，别留一片空白 Section */
+    function toggleSpacesSection(items) {
+        const host = document.getElementById('spaces');
+        if (host) host.hidden = !(items && items.length);
     }
 
     function applySection(key, data, defaults) {
@@ -695,10 +712,11 @@
         const source = data || {};
 
         if (section.list) {
-            // 云端返回空数组时要尊重它：管理员可能真的把作品全删了
+            // 云端返回空数组时要尊重它：管理员可能真的把空间全删了
             const items = Array.isArray(source.items) ? source.items : fallback.items;
             root.textContent = '';
-            items.forEach((item) => root.appendChild(renderProjectCard(item)));
+            items.forEach((item) => root.appendChild(renderSpaceCard(item)));
+            toggleSpacesSection(items);
             return;
         }
 
@@ -987,12 +1005,16 @@
             });
         }
 
-        /* ---- 作品集这类列表的增删改序 ---- */
+        /* ---- 自建空间：列表的增删改序 + 空间内的文字块 / 图片块 ---- */
+
+        // 与云函数 content/index.js 里的白名单保持一致：改一边记得改另一边
+        const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+        const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
         function addListItem(section) {
             const items = draft[section.key].items;
             if (items.length >= section.list.maxItems) {
-                setStatus(section.key, `最多 ${section.list.maxItems} 条，先删一条再加。`, 'error');
+                setStatus(section.key, `最多 ${section.list.maxItems} 个空间，先删一个再加。`, 'error');
                 return;
             }
             items.push(emptyItem(section));
@@ -1005,7 +1027,250 @@
             section.list.fields.forEach((field) => {
                 item[field.name] = field.type === 'tags' ? [] : '';
             });
+            if (section.list.blocks) item.blocks = [];
             return item;
+        }
+
+        function emptyBlock(kind) {
+            return kind === 'image'
+                ? { type: 'image', url: '', alt: '' }
+                : { type: 'text', value: '' };
+        }
+
+        function itemsOf(section) {
+            return draft[section.key].items;
+        }
+
+        /** 一个空间内部的块编辑器：每行一块内容，可加文字、可传图 */
+        function renderBlocksEditor(section, space, index, host) {
+            const list = document.createElement('div');
+            list.className = 'block-editor-list';
+            list.setAttribute('data-block-list', '');
+
+            space.blocks.forEach((block, order) => {
+                const row = document.createElement('div');
+                row.className = 'block-editor';
+                row.setAttribute('data-block', String(order));
+
+                const head = document.createElement('div');
+                head.className = 'block-head';
+
+                const kind = document.createElement('span');
+                kind.className = `block-kind is-${block.type}`;
+                kind.textContent = block.type === 'image' ? '图片' : '文字';
+
+                const controls = document.createElement('div');
+                controls.className = 'item-controls';
+
+                const up = document.createElement('button');
+                up.type = 'button';
+                up.className = 'icon-button';
+                up.textContent = '↑';
+                up.disabled = order === 0;
+                up.setAttribute('aria-label', `把这块内容上移`);
+                up.addEventListener('click', () => moveBlock(section, index, order, -1));
+
+                const down = document.createElement('button');
+                down.type = 'button';
+                down.className = 'icon-button';
+                down.textContent = '↓';
+                down.disabled = order === space.blocks.length - 1;
+                down.setAttribute('aria-label', '把这块内容下移');
+                down.addEventListener('click', () => moveBlock(section, index, order, 1));
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'icon-button is-danger';
+                remove.textContent = '删除';
+                remove.setAttribute('aria-label', '删除这块内容');
+                remove.addEventListener('click', () => removeBlock(section, index, order));
+
+                controls.append(up, down, remove);
+                head.append(kind, controls);
+                row.appendChild(head);
+
+                if (block.type === 'image') row.appendChild(buildImageEditor(section, index, order, block));
+                else row.appendChild(buildTextEditor(order, block));
+
+                list.appendChild(row);
+            });
+
+            host.appendChild(list);
+
+            const actions = document.createElement('div');
+            actions.className = 'block-actions';
+
+            const addText = document.createElement('button');
+            addText.type = 'button';
+            addText.className = 'ghost-button';
+            addText.textContent = '+ 加一段文字';
+            addText.addEventListener('click', () => addBlock(section, index, 'text'));
+
+            const addImage = document.createElement('button');
+            addImage.type = 'button';
+            addImage.className = 'ghost-button';
+            addImage.textContent = '+ 加一张图片';
+            addImage.addEventListener('click', () => addBlock(section, index, 'image'));
+
+            actions.append(addText, addImage);
+            host.appendChild(actions);
+        }
+
+        function buildTextEditor(order, block) {
+            const group = document.createElement('div');
+            group.className = 'form-group';
+
+            const label = document.createElement('label');
+            label.textContent = `第 ${order + 1} 块文字`;
+            const id = `b-text-${Math.random().toString(36).slice(2, 8)}`;
+            label.htmlFor = id;
+
+            const area = document.createElement('textarea');
+            area.id = id;
+            area.rows = 3;
+            area.maxLength = 2000;
+            area.value = block.value || '';
+            area.setAttribute('data-block-field', 'value');
+
+            group.append(label, area);
+            return group;
+        }
+
+        function buildImageEditor(section, index, order, block) {
+            const group = document.createElement('div');
+            group.className = 'form-group';
+
+            const label = document.createElement('label');
+            label.textContent = `第 ${order + 1} 块图片`;
+            const id = `b-img-${Math.random().toString(36).slice(2, 8)}`;
+            label.htmlFor = id;
+
+            const picker = document.createElement('input');
+            picker.type = 'file';
+            picker.id = id;
+            picker.accept = IMAGE_MIME_TYPES.join(',');
+            picker.className = 'block-file';
+            picker.setAttribute('data-block-file', '');
+            picker.setAttribute('data-item-index', String(index));
+            picker.setAttribute('data-block-index', String(order));
+
+            group.append(label, picker);
+
+            // 已经传过的图，把缩略图摆出来，才知道这块到底放了什么
+            const url = safeUrl(block.url);
+            if (url) {
+                const preview = document.createElement('img');
+                preview.className = 'block-preview';
+                preview.src = url;
+                preview.alt = block.alt || '已上传的图片';
+                group.appendChild(preview);
+            }
+
+            const altLabel = document.createElement('label');
+            altLabel.textContent = '图片说明（会显示在图下方，可留空）';
+            const altId = `${id}-alt`;
+            altLabel.htmlFor = altId;
+
+            const alt = document.createElement('input');
+            alt.type = 'text';
+            alt.id = altId;
+            alt.maxLength = 120;
+            alt.autocomplete = 'off';
+            alt.placeholder = '例如：凌晨四点的自习室';
+            alt.value = block.alt || '';
+            alt.setAttribute('data-block-field', 'alt');
+
+            group.append(altLabel, alt);
+
+            if (url) {
+                const linkLabel = document.createElement('span');
+                linkLabel.className = 'field-hint';
+                linkLabel.textContent = url;
+                group.appendChild(linkLabel);
+            }
+
+            return group;
+        }
+
+        function addBlock(section, index, kind) {
+            const space = itemsOf(section)[index];
+            if (!space) return;
+            if (space.blocks.length >= 30) {
+                setStatus(section.key, '一个空间最多 30 块内容。', 'error');
+                return;
+            }
+            space.blocks.push(emptyBlock(kind));
+            renderItemEditor(section);
+            markDirty(section.key);
+        }
+
+        function removeBlock(section, index, order) {
+            const space = itemsOf(section)[index];
+            if (!space) return;
+            space.blocks.splice(order, 1);
+            renderItemEditor(section);
+            markDirty(section.key);
+        }
+
+        function moveBlock(section, index, order, delta) {
+            const space = itemsOf(section)[index];
+            if (!space) return;
+            const target = order + delta;
+            if (target < 0 || target >= space.blocks.length) return;
+            [space.blocks[order], space.blocks[target]] = [space.blocks[target], space.blocks[order]];
+            renderItemEditor(section);
+            markDirty(section.key);
+        }
+
+        /**
+         * 选图 → 读成 base64 → 交给云函数 → 拿回可以直接 <img src> 的地址。
+         * 图片不塞进内容 JSON，而是单独落在 site/media/ 下，否则内容文件会迅速膨胀。
+         */
+        async function uploadImage(section, index, order, file) {
+            if (!file) return;
+            if (!IMAGE_MIME_TYPES.includes(file.type)) {
+                setStatus(section.key, '只支持 PNG / JPG / GIF / WebP 图片。', 'error');
+                return;
+            }
+            if (file.size > MAX_IMAGE_BYTES) {
+                setStatus(section.key, `这张图 ${(file.size / 1024 / 1024).toFixed(2)}MB，超过 2MB 上限，先压缩一下。`, 'error');
+                return;
+            }
+            if (!endpoint) {
+                setStatus(section.key, '还没配置 content-endpoint，图片没地方存。', 'error');
+                return;
+            }
+
+            setStatus(section.key, '图片上传中…');
+            try {
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(String(reader.result || ''));
+                    reader.onerror = () => reject(new Error('读不出这张图'));
+                    reader.readAsDataURL(file);
+                });
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'upload', mimeType: file.type, data: dataUrl })
+                });
+                const data = await response.json().catch(() => null);
+
+                if (!response.ok || !data || !data.ok) {
+                    setStatus(section.key, (data && data.message) || `上传失败（${response.status}）`, 'error');
+                    return;
+                }
+
+                const space = itemsOf(section)[index];
+                if (!space || !space.blocks[order]) return;
+                space.blocks[order].url = data.url;
+                renderItemEditor(section);
+                markDirty(section.key);
+                setStatus(section.key, '图片已上传，记得点保存。', 'success');
+            } catch (error) {
+                setStatus(section.key, error.message || '图片上传失败，重试一次试试。', 'error');
+            }
         }
 
         function renderItemEditor(section) {
@@ -1025,7 +1290,7 @@
 
                 const order = document.createElement('span');
                 order.className = 'item-index';
-                order.textContent = `${index + 1}. ${item.title || '未命名'}`;
+                order.textContent = `${index + 1}. ${item.name || '未命名空间'}`;
 
                 const controls = document.createElement('div');
                 controls.className = 'item-controls';
@@ -1061,6 +1326,11 @@
                     card.appendChild(createFieldControl(field, item[field.name]));
                 });
 
+                if (section.list.blocks) {
+                    item.blocks = Array.isArray(item.blocks) ? item.blocks : [];
+                    renderBlocksEditor(section, item, index, card);
+                }
+
                 listHost.appendChild(card);
             });
         }
@@ -1075,7 +1345,8 @@
         }
 
         function removeListItem(section, index) {
-            if (!window.confirm(`删除「${draft[section.key].items[index].title || '这条作品'}」？`)) return;
+            const name = draft[section.key].items[index].name || '这个空间';
+            if (!window.confirm(`删除「${name}」？里面的内容一起删掉。`)) return;
             draft[section.key].items.splice(index, 1);
             renderItemEditor(section);
             markDirty(section.key);
@@ -1088,8 +1359,12 @@
             return input.value.trim();
         }
 
+        /**
+         * 一次 'input' 事件要弄清三件事：改的是哪个区块、哪一条、哪个字段。
+         * 空间是两层结构（空间 → 内容块），所以比普通区块多一层判定。
+         */
         form.addEventListener('input', (event) => {
-            const input = event.target.closest('[data-field]');
+            const input = event.target.closest('[data-block-field], [data-field]');
             const pane = input?.closest('[data-pane]');
             if (!input || !pane) return;
 
@@ -1097,8 +1372,16 @@
             const section = sectionByKey(key);
             if (!section || !draft) return;
 
+            const blockRow = input.closest('[data-block]');
             const itemCard = input.closest('[data-item]');
-            if (itemCard) {
+
+            if (blockRow && itemCard) {
+                const index = Number(itemCard.getAttribute('data-item'));
+                const order = Number(blockRow.getAttribute('data-block'));
+                const target = draft[key].items[index]?.blocks[order];
+                if (!target) return;
+                target[input.getAttribute('data-block-field')] = input.value.trim();
+            } else if (itemCard) {
                 const index = Number(itemCard.getAttribute('data-item'));
                 const field = section.list.fields.find((f) => f.name === input.getAttribute('data-field'));
                 const target = draft[key].items[index];
@@ -1111,6 +1394,22 @@
             }
 
             markDirty(key);
+        });
+
+        // 选文件的 input 不触发 'input'，单独监听 'change'
+        form.addEventListener('change', (event) => {
+            const picker = event.target.closest('[data-block-file]');
+            const pane = picker?.closest('[data-pane]');
+            if (!picker || !pane) return;
+
+            const section = sectionByKey(pane.getAttribute('data-pane'));
+            if (!section) return;
+
+            const index = Number(picker.getAttribute('data-item-index'));
+            const order = Number(picker.getAttribute('data-block-index'));
+            const file = picker.files && picker.files[0];
+            picker.value = '';   // 清掉，下次选同一张图还能再触发 change
+            uploadImage(section, index, order, file);
         });
 
         form.addEventListener('submit', (event) => event.preventDefault());
